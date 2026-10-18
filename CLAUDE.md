@@ -2,6 +2,10 @@
 
 Static web page: per-game winner picks for NFL, NBA, MLB, soccer (EPL, La Liga, MLS, UCL) and esports (Counter-Strike 2, Dota 2). Each card argues "The case for" both teams side by side (pick badged), then a verdict naming why the loser falls short, plus an injury report.
 
+## Repo
+- Git repo (branch `main`) pushed to public https://github.com/Travsx69/GamePredictor (GitHub account Travsx69). The parent `C:\AI-Developer-Portfolio` is not a repo.
+- `gh` CLI is installed at `C:\Program Files\GitHub CLI\gh.exe` (not on the sandboxed Bash PATH; its token is in Windows Credential Manager, so run `gh`/`git push` from PowerShell). `README.md` is the public-facing description; keep its backtest table in sync with this file.
+
 ## Stack / files
 - No build, no deps. Plain HTML + JS, data fetched client-side from ESPN public API (`site.api.espn.com/apis/site/v2/sports/{path}/scoreboard|injuries`, CORS `*`, no key).
 - `model.js` — pure logic (LEAGUES config, `WEIGHTS`, record/form/odds parsing, injury weights, `predict()`, `toGame()` ESPN event → game object). No DOM. Shared by the page and `backtest.js`.
