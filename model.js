@@ -174,7 +174,7 @@ function toGame(e, injByTeam, injuriesKnown) {
     const t = c.competitors.find((x) => x.homeAway === side);
     const rec = (type) => t.records?.find((r) => r.type === type)?.summary;
     return {
-      id: t.team.id, abbr: t.team.abbreviation, name: t.team.displayName, score: t.score, winner: t.winner,
+      id: t.team.id, abbr: t.team.abbreviation, name: t.team.displayName, logo: t.team.logo, score: t.score, winner: t.winner,
       record: rec('total'), homeRecord: rec('home'), roadRecord: rec('road'), form: t.form,
       injuries: injByTeam[t.team.id] || [],
       ml: o.moneyline?.[side]?.close?.odds ?? o[side + 'TeamOdds']?.moneyLine,

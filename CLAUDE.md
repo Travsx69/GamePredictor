@@ -52,7 +52,10 @@ Betting (flat 1 unit at closing moneyline, `bet ...` lines in the report): every
 Soccer accuracy counts draws as misses (decisive-only: 68–74%); Brier/calibration use P(home | not draw) on decisive games. Calibration buckets are within ~6 pts in the big samples (NBA, MLB). Takeaway: the page's probability is essentially the closing line; the model alone is worse than the bookmaker in every league. Margin/form/rest mainly add argument variety; their predictive gain is small (biggest in NFL).
 
 ## Style
-- Small, flat functions; 2-space indent; single quotes; escape all API text via `esc()` before injecting HTML. `[hidden]` is forced `display:none` (`.bar` is flex). Cards: `card()` (ESPN event) → `render(g, league, injuriesKnown)` (any game object, `g.date`).
+- Small, flat functions; 2-space indent; single quotes; escape all API text via `esc()` before injecting HTML.
+- Card layout (answer first): meta line → matchup header (`side()`: logo or initials, name, record, big win %) → prob bar → result → verdict → two cases (top `SHOWN`=3 reasons, rest in native `<details class="more">`) → bet → injuries.
+- Phone rules live in the `@media (max-width: 760px)` block at the END of `<style>` so they override base rules; ☰ is hidden there and league pills always show.
+- python http.server sends no cache headers: after edits, hard-reload or the preview shows stale files. `[hidden]` is forced `display:none` (`.bar` is flex). Cards: `card()` (ESPN event) → `render(g, league, injuriesKnown)` (any game object, `g.date`).
 
 ## Known limits / TODO
 - ESPN soccer injury feed is empty → soccer has no injury factor (shown in status line).
