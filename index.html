@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Predictor</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#16181d; --muted:#626a76; --line:#e2e5ea; --win:#13795b; --lose:#b42318; --accent:#2f5fd0; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --card:#181b21; --text:#e8eaee; --muted:#9aa2ae; --line:#2a2f38; --win:#3ccf91; --lose:#f2786d; --accent:#7ea2ff; } }
+  * { box-sizing: border-box; }
+  [hidden] { display:none !important; }
+  a { color: var(--accent); }
+  body { margin:0; font:15px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  .layout { display:grid; grid-template-columns: 190px minmax(0, 1fr); max-width: 1200px; margin: 0 auto; }
+  #leagues { position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto; padding:20px 12px; border-right:1px solid var(--line); }
+  #leagues h2 { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:18px 10px 4px; }
+  #leagues h2:first-child { margin-top:4px; }
+  #leagues button { display:block; width:100%; text-align:left; border:0; background:none; color:var(--text); padding:7px 10px; border-radius:8px; cursor:pointer; font:inherit; }
+  #leagues button:hover { background:var(--card); }
+  #leagues button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+  #leagues button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .layout.collapsed { grid-template-columns: minmax(0, 1fr); }
+  .layout.collapsed #leagues { display:none; }
+  .top { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+  .top h1 { margin:0; }
+  #navToggle { border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:8px; padding:4px 10px; cursor:pointer; font:inherit; font-size:1.1rem; line-height:1.2; }
+  #navToggle:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  main { max-width: 980px; padding: 20px 16px 48px; min-width: 0; }
+  @media (max-width: 760px) {
+    .layout { display:block; }
+    #leagues { z-index:1; height:auto; display:flex; gap:6px; overflow-x:auto; padding:10px 16px; border-right:0; border-bottom:1px solid var(--line); background:var(--bg); }
+    #leagues h2 { display:none; }
+    #leagues button { width:auto; flex:none; white-space:nowrap; border:1px solid var(--line); border-radius:999px; background:var(--card); }
+  }
+  h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+  .bar button { border:1px solid var(--line); background:var(--card); color:var(--text); padding:6px 12px; border-radius:999px; cursor:pointer; font:inherit; }
+  .bar button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .bar input, .bar select { font:inherit; padding:5px 8px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); }
+  #status { color: var(--muted); }
+  .game { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:baseline; }
+  .teams { font-size:1.1rem; font-weight:600; }
+  .meta { color:var(--muted); font-size:.85rem; }
+  .prob { display:flex; height:10px; border-radius:6px; overflow:hidden; background:var(--line); margin:6px 0 2px; }
+  .prob span { display:block; }
+  .legend { display:flex; justify-content:space-between; font-size:.8rem; color:var(--muted); }
+  .cols { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-top:12px; }
+  .cols h3 { font-size:.9rem; margin:0 0 6px; }
+  .cols ul { margin:0; padding-left:18px; }
+  .cols li { margin-bottom:4px; }
+  .case { border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .case.picked { border-color:var(--win); box-shadow: inset 3px 0 0 var(--win); }
+  .case h3 { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:1rem; }
+  .case h3 .meta { margin-left:auto; font-weight:600; }
+  .badge { background:var(--win); color:var(--card); font-size:.7rem; padding:2px 7px; border-radius:999px; letter-spacing:.04em; }
+  .lead { margin:0 0 6px; font-weight:600; }
+  .verdict { margin:12px 0 0; padding:10px 12px; background:var(--bg); border-radius:8px; }
+  .bet { margin:8px 0 0; padding:8px 12px; border-left:3px solid var(--muted); font-size:.9rem; }
+  .bet.yes { border-color:var(--win); }
+  #esport select { max-width: 72vw; }
+  #esport h2 { font-size:1rem; margin:20px 0 8px; }
+  details { margin-top:12px; } summary { cursor:pointer; color:var(--accent); }
+  .inj { font-size:.85rem; color:var(--muted); }
+  .result { font-weight:600; } .ok { color:var(--win); } .bad { color:var(--lose); }
+  footer { color:var(--muted); font-size:.8rem; margin-top:24px; }
+</style>
+</head>
+<body>
+<div class="layout" id="layout">
+<nav id="leagues" aria-label="Sports and leagues"></nav>
+<main>
+  <div class="top">
+    <button id="navToggle" aria-controls="leagues" aria-expanded="true" aria-label="Hide leagues" title="Hide leagues">☰</button>
+    <h1>Game Predictor</h1>
+  </div>
+  <p class="sub">Both sides of every game argued with records, scoring margin, home advantage, form, rest, injuries, star players and betting lines, then a verdict.</p>
+  <div class="bar" id="dateBar">
+    <label>Date <input type="date" id="date"></label>
+    <button id="today">Current slate</button>
+    <span id="status" role="status"></span>
+  </div>
+  <p class="meta" id="scorecard"></p>
+  <div id="games"></div>
+  <div id="esport" hidden>
+    <div class="bar">
+      <label>Team 1 <select id="teamA"></select></label>
+      <span>vs</span>
+      <label>Team 2 <select id="teamB"></select></label>
+    </div>
+    <div id="esPick"></div>
+    <h2>Upcoming matches</h2>
+    <form class="bar" id="psForm">
+      <label>PandaScore key <input type="password" id="psKey" autocomplete="off" spellcheck="false"></label>
+      <button type="submit">Save key</button>
+      <button type="button" id="psClear">Remove key</button>
+    </form>
+    <p class="meta" id="psStatus"></p>
+    <div id="esGames"></div>
+  </div>
+  <footer>Data: ESPN public feeds. A simple statistical model, for fun and analysis, not betting advice. Bookmakers' margins mean most bets lose money; if you bet, set a limit you can afford to lose.</footer>
+</main>
+</div>
+<script src="model.js"></script>
+<script src="backtest-results.js"></script>
+<script>
+const API = 'https://site.api.espn.com/apis/site/v2/sports/';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const pct = (p) => Math.round(p * 100) + '%';
+let leagueKey = 'nfl';
+
+const SPORT = { football: 'Football', basketball: 'Basketball', baseball: 'Baseball', soccer: 'Soccer', esports: 'Esports' };
+let lastSport;
+for (const [key, l] of Object.entries(LEAGUES)) {
+  const sport = SPORT[l.path.split('/')[0]];
+  if (sport !== lastSport) {
+    const h = document.createElement('h2');
+    h.textContent = lastSport = sport;
+    $('leagues').append(h);
+  }
+  const b = document.createElement('button');
+  b.textContent = l.name; b.dataset.key = key;
+  b.onclick = () => { leagueKey = key; load(); };
+  $('leagues').append(b);
+}
+// Sidebar show/hide, remembered per browser (storage can be blocked, so it's optional)
+function setNav(open) {
+  $('layout').classList.toggle('collapsed', !open);
+  const t = $('navToggle'), label = open ? 'Hide leagues' : 'Show leagues';
+  t.setAttribute('aria-expanded', open); t.setAttribute('aria-label', label); t.title = label;
+  try { localStorage.setItem('navOpen', open ? '1' : '0'); } catch {}
+}
+let navOpen = true;
+try { navOpen = localStorage.getItem('navOpen') !== '0'; } catch {}
+setNav(navOpen);
+$('navToggle').onclick = () => setNav($('layout').classList.contains('collapsed'));
+
+// Current slate = ESPN's default board (can span the week); the date box still shows today
+const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+let slate = true;
+$('date').value = today();
+$('date').onchange = () => { slate = false; load(); };
+$('today').onclick = () => { slate = true; $('date').value = today(); load(); };
+
+// Each team's completed results this season (team schedule feed), cached for the session
+const schedules = new Map();
+function teamResults(league, id) {
+  const key = league.path + '/' + id;
+  if (!schedules.has(key)) {
+    schedules.set(key, getJSON(`${API}${league.path}/teams/${id}/schedule`).then((s) => resultsOf(s.events || [], id)).catch(() => []));
+  }
+  return schedules.get(key);
+}
+function resultsOf(events, id) {
+  const pts = (x) => Number(x.score?.value ?? x.score);
+  return events.filter((e) => e.competitions[0].status?.type?.completed).map((e) => {
+    const c = e.competitions[0];
+    const me = c.competitors.find((x) => (x.team?.id ?? x.id) === id), op = c.competitors.find((x) => x !== me);
+    return me && op && { date: e.date, pf: pts(me), pa: pts(op), res: me.winner ? 'W' : op.winner ? 'L' : 'D' };
+  }).filter((r) => r && !isNaN(r.pf) && !isNaN(r.pa));
+}
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status + ' ' + url);
+  return r.json();
+}
+
+// ---- Esports (not ESPN): free team ratings per game + optional PandaScore schedule (your key) ----
+// Each adapter: load() -> { teams (ranked, with label), scorecard }; team(t) -> card team object;
+// pick(list) -> which of several same-name entries to use; predict(game); points(x, y) -> extra arguments.
+
+// CS2: Valve Regional Standings (GitHub)
+const VRS = 'https://raw.githubusercontent.com/ValveSoftware/counter-strike_regional_standings/main/';
+let vrs; // { date, teams } from the newest global standings file
+async function vrsLoad() {
+  if (vrs) return vrs;
+  const year = new Date().getFullYear();
+  for (const y of [year, year - 1]) {
+    const files = await getJSON(`https://api.github.com/repos/ValveSoftware/counter-strike_regional_standings/contents/live/${y}`).catch(() => []);
+    const latest = files.map((f) => f.name).filter((n) => /^standings_global_\d{4}_\d\d_\d\d\.md$/.test(n)).sort().at(-1);
+    if (!latest) continue;
+    const r = await fetch(`${VRS}live/${y}/${latest}`);
+    if (!r.ok) throw new Error(r.status + ' Valve standings');
+    const teams = vrsParseStandings(await r.text()).map((t) => ({ ...t, details: `${VRS}live/${y}/${t.details}` }));
+    return (vrs = { date: latest.match(/\d{4}_\d\d_\d\d/)[0].replaceAll('_', '-'), teams });
+  }
+  throw new Error('no Valve standings found');
+}
+const vrsDetails = new Map();
+function vrsTeamDetails(t) {
+  // keyed by details URL: Valve ranks rosters, so two entries can share a team name
+  if (!vrsDetails.has(t.details)) {
+    vrsDetails.set(t.details, fetch(t.details).then((r) => (r.ok ? r.text() : '')).catch(() => '').then(vrsParseDetails));
+  }
+  return vrsDetails.get(t.details);
+}
+
+// Dota 2: OpenDota (no key; ~60 requests/min, 3000/day)
+const OD = 'https://api.opendota.com/api/';
+let odTeams;
+const odMatches = new Map();
+const odResults = (id) => {
+  if (!odMatches.has(id)) odMatches.set(id, getJSON(`${OD}teams/${id}/matches`).then(dotaResults).catch(() => []));
+  return odMatches.get(id);
+};
+
+// Shared talking points
+function formPoint(x, y) {
+  const fx = formPct(x.form), fy = formPct(y.form);
+  return x.form && y.form && fx > fy
+    ? [{ w: 0.05 + 0.2 * (fx - fy), text: `They arrive in better form: ${x.form} in their last ${x.form.length} vs ${y.form} for ${y.abbr}.`, short: `recent form of ${y.form}` }]
+    : [];
+}
+function h2hPoint(x, y, mine, unit) {
+  const won = mine.filter((m) => m.res === 'W').length;
+  if (won <= mine.length - won) return [];
+  const text = mine.length === 1 ? `They won their only ${unit} against ${y.abbr} in the last six months.` : `They've won ${won} of ${mine.length} ${unit}s against ${y.abbr} in the last six months.`;
+  return [{ w: 0.15, text, short: 'losing the head-to-head' }];
+}
+const SIX_MONTHS = () => new Date(Date.now() - 182 * 864e5).toISOString();
+
+const ESPORTS = {
+  cs2: {
+    panda: 'csgo', source: "Valve's standings",
+    async load() {
+      const { date, teams } = await vrsLoad();
+      return {
+        teams: teams.map((t) => ({ ...t, label: `#${t.rank} ${t.name} (${t.points})` })),
+        scorecard: `Not backtested (no free CS2 results/odds history). Win chances use Valve's own ranking formula on the ${date} standings; Valve notes it's overconfident for big mismatches.`,
+      };
+    },
+    async team(t) {
+      const d = await vrsTeamDetails(t);
+      return { id: t.name, abbr: t.name, name: t.name, record: '#' + t.rank, rank: t.rank, points: t.points, vrs: d,
+        form: d.matches.slice(0, 5).reverse().map((m) => m.res).join(''), injuries: [], leaders: [] };
+    },
+    // Valve ranks rosters, so an org can be listed twice (old and new lineup): take the one that played most recently
+    async pick(list) {
+      if (list.length < 2) return list[0];
+      const last = await Promise.all(list.map(async (t) => (await vrsTeamDetails(t)).matches[0]?.date || ''));
+      return list[last.indexOf(last.reduce((a, b) => (b > a ? b : a)))];
+    },
+    predict: predictCs2,
+    // Text only: VRS points already include these
+    points(x, y) {
+      const better = (a, b) => a > b * 1.15 && a - b > 0.05; // NaN (missing) compares false
+      const out = [...formPoint(x, y), ...h2hPoint(x, y, x.vrs.matches.filter((m) => m.opponent === y.name), 'meeting')];
+      if (better(x.vrs.lan, y.vrs.lan)) out.push({ w: 0.1, text: `They deliver on LAN: Valve scores their LAN wins ${x.vrs.lan.toFixed(2)} vs ${y.vrs.lan.toFixed(2)}.`, short: 'fewer LAN wins' });
+      if (better(x.vrs.beaten, y.vrs.beaten)) out.push({ w: 0.1, text: `They've beaten bigger names: Valve scores the teams they've beaten ${x.vrs.beaten.toFixed(2)} vs ${y.vrs.beaten.toFixed(2)}.`, short: 'fewer wins over top teams' });
+      if (better(x.vrs.bounty, y.vrs.bounty)) out.push({ w: 0.08, text: `They've won more prize money recently (Valve scores it ${x.vrs.bounty.toFixed(2)} vs ${y.vrs.bounty.toFixed(2)}).` });
+      return out;
+    },
+  },
+  dota2: {
+    panda: 'dota2', source: "OpenDota's active teams",
+    async load() {
+      odTeams ||= getJSON(OD + 'teams');
+      const cutoff = Date.now() / 1000 - 182 * 864e2;
+      const latest = new Map(); // same name twice (e.g. two "LGD Gaming" entries): keep the one that played last
+      for (const t of await odTeams) {
+        const k = norm(t.name) || String(t.team_id);
+        if (t.last_match_time > cutoff && !(latest.get(k)?.last_match_time > t.last_match_time)) latest.set(k, t);
+      }
+      const teams = [...latest.values()].sort((a, b) => b.rating - a.rating)
+        .map((t, i) => ({ ...t, rank: i + 1, acronym: t.tag, label: `#${i + 1} ${t.name} (${Math.round(t.rating)})` }));
+      return { teams, scorecard: `Not backtested (OpenDota only shows current ratings). Win chances use OpenDota's team Elo ratings (standard 400-point Elo) for the ${teams.length} teams active in the last six months.` };
+    },
+    async team(t) {
+      const results = await odResults(t.team_id);
+      return { id: t.team_id, abbr: t.name, name: t.name, record: '#' + t.rank, rank: t.rank, rating: t.rating, dota: results,
+        form: results.slice(0, 5).reverse().map((m) => m.res).join(''), injuries: [], leaders: [] };
+    },
+    pick: async (list) => list[0],
+    predict: predictElo,
+    points(x, y) {
+      const since = SIX_MONTHS();
+      const out = [...formPoint(x, y), ...h2hPoint(x, y, x.dota.filter((m) => m.opponentId === y.id && m.date > since), 'game')];
+      const kills = (t) => { const r = t.dota.slice(0, 10); return r.length ? r.reduce((s, m) => s + m.kills, 0) / r.length : NaN; };
+      const kx = kills(x), ky = kills(y), sign = (n) => (n >= 0 ? '+' : '') + n.toFixed(1);
+      if (kx > ky + 2) out.push({ w: 0.08 + Math.min(0.1, (kx - ky) / 100), text: `They've been out-killing opponents by ${sign(kx)} per game over their last 10 games, vs ${sign(ky)} for ${y.abbr}.`, short: `a ${sign(ky)} kill margin` });
+      return out;
+    },
+  },
+};
+
+async function esportGame(es, t1, t2, extra = {}) {
+  const [away, home] = await Promise.all([es.team(t1), es.team(t2)]); // Team 1 shows on the left
+  return { away, home, neutral: true, injuriesKnown: false, state: { state: 'pre' }, ...extra };
+}
+
+const PS_KEY = 'pandascoreKey';
+const psKey = () => { try { return localStorage.getItem(PS_KEY) || ''; } catch { return ''; } };
+// "Team Falcons" / "Aurora Gaming" / "BetBoom Team" -> "falcons" / "aurora" / "betboom". Non-Latin names become ''.
+const norm = (s) => String(s || '').toLowerCase().replace(/\b(team|esports?|gaming|club)\b/g, '').replace(/[^a-z0-9]/g, '');
+// PandaScore matches -> games for teams in the rating source, by name, else acronym (unique tags only)
+async function pandaGames(matches, teams, es) {
+  const byName = new Map(), tags = new Map();
+  for (const t of teams) {
+    const k = norm(t.name), a = norm(t.acronym);
+    if (k) byName.set(k, [...(byName.get(k) || []), t]);
+    if (a) tags.set(a, tags.has(a) ? null : t); // null = tag shared by several teams, don't use it
+  }
+  const find = (o) => {
+    const k = norm(o?.name), a = norm(o?.acronym);
+    const list = (k && byName.get(k)) || (a && (byName.get(a) || (tags.get(a) && [tags.get(a)])));
+    return list ? es.pick(list) : null;
+  };
+  const games = await Promise.all(matches.map(async (m) => {
+    const [o1, o2] = (m.opponents || []).map((o) => o.opponent);
+    const [t1, t2] = await Promise.all([find(o1), find(o2)]);
+    if (!t1 || !t2) return null;
+    const score = (o) => m.results?.find((r) => r.team_id === o.id)?.score ?? 0;
+    const bo = m.number_of_games ? `Bo${m.number_of_games}` : '';
+    const g = await esportGame(es, t1, t2, {
+      state: { state: m.status === 'running' ? 'in' : 'pre', shortDetail: bo },
+      note: [m.league?.name, m.tournament?.name, bo].filter(Boolean).join(' · '), date: m.begin_at || m.scheduled_at,
+    });
+    g.away.score = score(o1); g.home.score = score(o2);
+    return g;
+  }));
+  const found = games.filter(Boolean);
+  return { games: found, skipped: games.length - found.length };
+}
+async function loadUpcoming(league, teams) {
+  const es = ESPORTS[league.esport], key = psKey();
+  $('esGames').innerHTML = '';
+  if (!key) {
+    $('psStatus').innerHTML = 'Add a free key from <a href="https://pandascore.co" target="_blank" rel="noopener">pandascore.co</a> to list upcoming and live matches here. It is saved only in this browser.';
+    return;
+  }
+  $('psStatus').textContent = 'Loading matches…';
+  try {
+    const get = async (kind) => {
+      const r = await fetch(`https://api.pandascore.co/${es.panda}/matches/${kind}?per_page=25&sort=begin_at`, { headers: { Authorization: 'Bearer ' + key } });
+      if (!r.ok) throw new Error(r.status === 401 || r.status === 403 ? 'PandaScore rejected the key' : 'PandaScore ' + r.status);
+      return r.json();
+    };
+    const { games, skipped } = await pandaGames([...await get('running'), ...await get('upcoming')], teams, es);
+    if (LEAGUES[leagueKey] !== league) return; // user switched games meanwhile
+    $('psStatus').textContent = (games.length ? `${games.length} upcoming or live matches` : 'No upcoming matches between rated teams')
+      + (skipped ? ` · ${skipped} skipped (team not in ${es.source})` : '') + ' · key saved in this browser';
+    $('esGames').innerHTML = games.map((g) => render(g, league, false)).join('');
+  } catch (err) {
+    $('psStatus').textContent = 'Could not load matches: ' + err.message;
+  }
+}
+
+async function loadEsport(league) {
+  const es = ESPORTS[league.esport];
+  $('esPick').innerHTML = $('esGames').innerHTML = $('psStatus').textContent = '';
+  try {
+    const { teams, scorecard } = await es.load();
+    $('scorecard').textContent = scorecard;
+    if ($('teamA').dataset.league !== league.path) {
+      $('teamA').innerHTML = $('teamB').innerHTML = teams.map((t, i) => `<option value="${i}">${esc(t.label)}</option>`).join('');
+      $('teamA').dataset.league = league.path;
+      $('teamB').value = '1';
+    }
+    const pickCard = async () => {
+      const a = teams[$('teamA').value], b = teams[$('teamB').value];
+      const html = a === b ? '<p class="meta">Pick two different teams.</p>' : render(await esportGame(es, a, b), league, false);
+      if (LEAGUES[leagueKey] === league) $('esPick').innerHTML = html;
+    };
+    $('teamA').onchange = $('teamB').onchange = pickCard;
+    $('psForm').onsubmit = (ev) => {
+      ev.preventDefault();
+      try { localStorage.setItem(PS_KEY, $('psKey').value.trim()); } catch {}
+      $('psKey').value = '';
+      loadUpcoming(league, teams);
+    };
+    $('psClear').onclick = () => { try { localStorage.removeItem(PS_KEY); } catch {} loadUpcoming(league, teams); };
+    await Promise.all([pickCard(), loadUpcoming(league, teams)]);
+  } catch (err) {
+    $('scorecard').textContent = `Could not load ${league.name} data: ` + err.message;
+  }
+}
+
+async function load() {
+  const league = LEAGUES[leagueKey];
+  document.querySelectorAll('#leagues button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.key === leagueKey));
+  $('status').textContent = 'Loading…';
+  const bt = typeof BACKTEST !== 'undefined' && BACKTEST[leagueKey];
+  $('scorecard').textContent = bt ? `Backtest: ${pct(bt.acc)} of ${bt.games} ${league.name} games picked right (${bt.season}`
+    + (bt.bookAcc != null ? `; bookmaker favourite ${pct(bt.bookAcc)}` : '') + (league.soccer ? '; draws count as misses' : '') + ').' : '';
+  $('games').innerHTML = '';
+  $('dateBar').hidden = !!league.esport;
+  $('esport').hidden = !league.esport;
+  if (league.esport) return loadEsport(league);
+  const d = slate ? '' : $('date').value.replaceAll('-', '');
+  try {
+    const [board, inj] = await Promise.all([
+      getJSON(API + league.path + '/scoreboard' + (d ? '?dates=' + d : '')),
+      getJSON(API + league.path + '/injuries').catch(() => ({ injuries: [] })),
+    ]);
+    const injByTeam = {};
+    for (const t of inj.injuries || []) {
+      injByTeam[t.id] = (t.injuries || []).map((x) => ({
+        name: x.athlete?.displayName, pos: x.athlete?.position?.abbreviation, status: x.status, type: x.details?.type || '',
+      }));
+    }
+    const injuriesKnown = Object.keys(injByTeam).length > 0;
+    const events = board.events || [];
+    const ids = [...new Set(events.flatMap((e) => e.competitions[0].competitors.map((c) => c.team.id)))];
+    const hist = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await teamResults(league, id)])));
+    const count = (state, word) => {
+      const n = events.filter((e) => e.competitions[0].status.type.state === state).length;
+      return n ? `${n} ${word} game${n > 1 ? 's' : ''}` : '';
+    };
+    const counts = [count('pre', 'upcoming'), count('in', 'live'), count('post', 'final')].filter(Boolean).join(' · ');
+    $('status').textContent = events.length ? counts + (injuriesKnown ? '' : ' · no injury feed for this league') : 'No games on this date. Pick another day.';
+    $('games').innerHTML = events.map((e) => card(e, league, injByTeam, injuriesKnown, hist)).join('');
+  } catch (err) {
+    $('status').textContent = 'Could not load data: ' + err.message;
+  }
+}
+
+// Bet suggestion for the pick: needs positive expected value at the posted price AND the same rule
+// having made money over enough past bets in this league (backtest.js). Otherwise it says pass, with the numbers.
+const MIN_BETS = 100;
+function betAdvice(W, winP, league) {
+  const bc = betCheck(winP, W.ml);
+  if (!bc) return { yes: false, text: 'No odds posted yet, so there is no price to judge.' };
+  const bt = typeof BACKTEST !== 'undefined' && BACKTEST[leagueKey];
+  const ml = Number(String(W.ml).replace('+', ''));
+  const price = `At ${ml > 0 ? '+' : ''}${ml}, ${W.abbr} must win ${pct(bc.breakEven)} of the time to break even; we estimate ${pct(winP)}.`;
+  const history = bt?.allRoi != null ? ` Backing every ${league.name} pick in the ${bt.season} returned ${bt.allRoi > 0 ? '+' : ''}${(bt.allRoi * 100).toFixed(1)}% on the stake.` : '';
+  if (bc.ev <= 0) return { yes: false, text: `Pass. ${price} The bookmaker's margin outweighs the edge.${history}` };
+  if (!bt || bt.valueBets < MIN_BETS || !(bt.valueRoi > 0)) {
+    return { yes: false, text: `Pass. ${price} That's a small edge on paper (${pct(bc.ev)} per bet), but this rule has ${bt ? bt.valueBets : 0} past ${league.name} bets${bt?.valueRoi != null ? ` (return ${(bt.valueRoi * 100).toFixed(1)}%)` : ''}, too few to trust.` };
+  }
+  return { yes: true, text: `Value bet. ${price} Expected return ${pct(bc.ev)} per bet; this rule returned +${(bt.valueRoi * 100).toFixed(1)}% over ${bt.valueBets} past bets.` };
+}
+
+// One persuasive sentence for factor `f`, argued for team x against team y.
+function point(f, g, x, y) {
+  const xs = x === g.home ? 'home' : 'away', ys = xs === 'home' ? 'away' : 'home';
+  switch (f.key) {
+    case 'record': return `${x.abbr} (${f[xs]}) has simply been the better team this season than ${y.abbr} (${f[ys]}).`;
+    case 'split': return xs === 'home'
+      ? `They're ${f.home} at home, and ${y.abbr} is just ${f.away} on the road.`
+      : `They've gone ${f.away} on the road, and ${y.abbr} is only ${f.home} at home.`;
+    case 'form': return `They arrive in better form: ${f[xs]} in their last ${f[xs].length} vs ${f[ys]} for ${y.abbr}.`;
+    case 'home': return `They have the home crowd behind them.`;
+    case 'margin': {
+      const u = LEAGUES[leagueKey].unit;
+      const net = (m) => (Math.abs(m) < 0.05 ? 'broken even on the scoreboard'
+        : m > 0 ? `outscored opponents by ${m.toFixed(1)} ${u}s a game` : `been outscored by ${(-m).toFixed(1)} ${u}s a game`);
+      return `They've ${net(f[xs])}; ${y.abbr} has ${net(f[ys])}.`;
+    }
+    case 'rest': {
+      const ago = (d) => (d < 1 ? 'played earlier today' : d === 1 ? 'played yesterday' : `has had ${d} days off`);
+      return `They're fresher: ${y.abbr} ${ago(f[ys])}, while ${x.abbr} ${ago(f[xs])}.`;
+    }
+    case 'injuries': {
+      const out = keyInjuries(y).slice(0, 3).map((i) => {
+        const lead = y.leaders.find((l) => l.name === i.name);
+        return `${i.name} (${i.pos}, ${i.status}${lead ? ', their leading ' + lead.label : ''})`;
+      });
+      return `${y.abbr} is short-handed${out.length ? ': ' + out.join(', ') : ''}.`;
+    }
+    case 'vrs': return `They're ranked #${x.rank} in Valve's world standings with ${x.points} points, ${Math.abs(x.points - y.points)} ahead of #${y.rank} ${y.abbr}.`;
+    case 'elo': return `They're rated ${Math.round(x.rating)} by OpenDota (#${x.rank} among active teams), ${Math.round(Math.abs(x.rating - y.rating))} points ahead of ${y.abbr}.`;
+    case 'market': return `Bookmakers back ${x.abbr} at ${x.ml}, about a ${pct(impliedProb(x.ml))} chance.`;
+  }
+}
+
+const DUEL = {
+  passer: (a, b) => `${a.name} has out-thrown ${b.name}, ${a.value} yards to ${b.value}.`,
+  rusher: (a, b) => `${a.name} has out-rushed ${b.name}, ${a.value} yards to ${b.value}.`,
+  receiver: (a, b) => `${a.name} has out-gained ${b.name} through the air, ${a.value} yards to ${b.value}.`,
+  scorer: (a, b) => `${a.name} has ${a.value} goals to ${b.name}'s ${b.value}.`,
+};
+
+const isOut = (t, name) => t.injuries.some((i) => i.name === name && injuryWeight(i, LEAGUES[leagueKey]) >= 0.75);
+
+// The full argument for team x: factor sentences (strongest first) plus player/series extras.
+function buildCase(x, y, g, factors) {
+  const mine = factors.filter((f) => (x === g.home ? f.value > 0.02 : f.value < -0.02));
+  const pts = mine.map((f) => ({ w: Math.abs(f.value), text: point(f, g, x, y), short: weakness(f, g, y) }));
+  if (g.state.state === 'pre') {
+    // Head-to-head of season leaders; skip if either is out (the injury point covers that)
+    for (const a of x.leaders) {
+      const b = y.leaders.find((l) => l.label === a.label);
+      if (b && a.value > b.value * 1.1 && !isOut(x, a.name) && !isOut(y, b.name)) {
+        pts.push({ w: 0.05 + 0.2 * (a.value - b.value) / a.value, text: DUEL[a.label](a, b) });
+      }
+    }
+    const p = x.pitcher, q = y.pitcher;
+    if (p && q && parseFloat(p.era) < parseFloat(q.era)) {
+      pts.push({ w: 0.3, text: `On the mound, ${p.name} (${p.era} ERA) has the edge over ${q.name} (${q.era} ERA).`, short: `${q.name}'s ${q.era} ERA` });
+    }
+  }
+  const es = ESPORTS[LEAGUES[leagueKey].esport];
+  if (es) pts.push(...es.points(x, y));
+  if (x.seriesWins > y.seriesWins) pts.push({ w: 0.2, text: `They lead the series ${x.seriesWins}-${y.seriesWins}.` });
+  return pts.sort((a, b) => b.w - a.w);
+}
+
+// Short phrase for the verdict: how factor f hurts the losing team y.
+function weakness(f, g, y) {
+  const ys = y === g.home ? 'home' : 'away';
+  switch (f.key) {
+    case 'record': return `their ${f[ys]} record`;
+    case 'split': return ys === 'home' ? `${f.home} at home` : `${f.away} on the road`;
+    case 'form': return `recent form of ${f[ys]}`;
+    case 'home': return 'playing away';
+    case 'margin': return `a ${f[ys] >= 0 ? '+' : ''}${f[ys].toFixed(1)} ${LEAGUES[leagueKey].unit} average margin`;
+    case 'rest': return 'less rest';
+    case 'injuries': { const i = keyInjuries(y)[0]; return i ? `missing ${i.name}` : 'more injuries'; }
+    case 'market': return 'underdog odds';
+    case 'vrs': return `a #${y.rank} world ranking`;
+    case 'elo': return `a ${Math.round(y.rating)} rating`;
+  }
+}
+
+function keyInjuries(t) {
+  const w = (i) => injuryWeight(i, LEAGUES[leagueKey]);
+  return t.injuries.filter((i) => w(i) > 0).sort((a, b) => w(b) - w(a));
+}
+
+function card(e, league, injByTeam, injuriesKnown, hist) {
+  const g = toGame(e, injByTeam, injuriesKnown);
+  g.date = e.date;
+  for (const t of [g.home, g.away]) {
+    t.trend = trend(hist[t.id] || [], e.date); // results before kickoff only, so finished games don't see their own score
+    if (t.trend) t.form = t.trend.form;
+  }
+  return render(g, league, injuriesKnown);
+}
+
+// Card for any game object (ESPN via card(), esports via esportGame())
+function render(g, league, injuriesKnown) {
+  const { pHome, drawP, factors } = (league.esport ? ESPORTS[league.esport].predict : predict)(g, league);
+  const homeWins = pHome >= 0.5;
+  const W = homeWins ? g.home : g.away, L = homeWins ? g.away : g.home;
+  const d = drawP || 0;
+  const pH = pHome * (1 - d), pA = (1 - pHome) * (1 - d);
+  const winP = homeWins ? pH : pA;
+  const close = Math.abs(pHome - 0.5) < 0.05;
+
+  const cases = new Map([[g.away, buildCase(g.away, g.home, g, factors)], [g.home, buildCase(g.home, g.away, g, factors)]]);
+  const caseHtml = (x, p) => {
+    const pick = x === W;
+    const open = pick ? (close ? `${x.name} can take this coin flip.` : `${x.name} should win this one.`) : `They're the underdog, but they have a path:`;
+    const tail = !pick && p > 0.02 ? `Upsets at these odds happen about 1 game in ${Math.max(2, Math.round(1 / p))}.` : '';
+    const items = cases.get(x).map((t) => `<li>${esc(t.text)}</li>`).join('') || '<li>No clear edge on paper yet, so this comes down to who plays better on the night.</li>';
+    return `<section class="case${pick ? ' picked' : ''}">
+      <h3>The case for ${esc(x.name)} ${pick ? '<span class="badge">PICK</span>' : ''}<span class="meta">${pct(p)}</span></h3>
+      <p class="lead">${esc(open)}</p><ul>${items}</ul>${tail ? `<p class="meta">${esc(tail)}</p>` : ''}
+    </section>`;
+  };
+  const edge = Math.max(pHome, 1 - pHome); // ignores draws so soccer uses the same scale
+  const conf = close ? 'a toss-up lean' : edge < 0.6 ? 'a lean' : edge < 0.7 ? 'a solid pick' : 'a strong pick';
+  const nW = cases.get(W).length, nL = cases.get(L).length;
+  const flaws = cases.get(W).map((p) => p.short).filter(Boolean).slice(0, 3);
+  const list = (a) => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a.at(-1) : a[0]);
+  const verdict = `${W.name}, ${conf} at ${pct(winP)}. ` + (nW > nL ? `Their case wins on ${nW} points to ${nL}.`
+    : nW === nL ? `Both sides make ${nW} points, but ${W.abbr}'s carry more weight.`
+    : `${L.abbr} has more talking points (${nL} to ${nW}), but ${W.abbr}'s edges carry more weight.`)
+    + (flaws.length ? ` ${L.abbr} falls short with ${list(flaws)}.` : '');
+
+  const time = !g.date ? '' : new Date(g.date).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  let result = '';
+  if (g.state.completed) {
+    const right = W.winner === true;
+    const draw = !g.home.winner && !g.away.winner;
+    result = `<div class="result ${right ? 'ok' : 'bad'}">Final ${esc(g.away.abbr)} ${esc(g.away.score)} - ${esc(g.home.abbr)} ${esc(g.home.score)} · ${draw ? 'Draw' : right ? 'Pick correct ✓' : 'Pick missed ✗'}</div>`;
+  } else if (g.state.state === 'in') {
+    result = `<div class="result">Live: ${esc(g.away.abbr)} ${esc(g.away.score)} - ${esc(g.home.abbr)} ${esc(g.home.score)} (${esc(g.state.shortDetail)})</div>`;
+  }
+
+  const injList = (t) => {
+    const k = keyInjuries(t);
+    return `<div><strong>${esc(t.name)}</strong>${k.length ? '<ul class="inj">' + k.slice(0, 8).map((i) => `<li>${esc(i.name)} (${esc(i.pos)}): ${esc(i.status)}${i.type ? ', ' + esc(i.type) : ''}</li>`).join('') + '</ul>' : '<p class="inj">No players listed out or questionable.</p>'}</div>`;
+  };
+
+  return `<article class="game">
+    <div class="head">
+      <div class="teams">${esc(g.away.name)} <span class="meta">${esc(g.away.record || '')}</span> ${league.esport ? 'vs' : '@'} ${esc(g.home.name)} <span class="meta">${esc(g.home.record || '')}</span></div>
+      <div class="meta">${[time, g.note, g.neutral && g.venue ? 'Neutral site: ' + g.venue : '', g.line ? 'Line: ' + g.line : ''].filter(Boolean).map(esc).join(' · ')}</div>
+    </div>
+    ${result}
+    <div class="prob" aria-hidden="true">
+      <span style="width:${pA * 100}%;background:${homeWins ? 'var(--muted)' : 'var(--win)'}"></span>
+      <span style="width:${d * 100}%;background:var(--line)"></span>
+      <span style="width:${pH * 100}%;background:${homeWins ? 'var(--win)' : 'var(--muted)'}"></span>
+    </div>
+    <div class="legend"><span>${esc(g.away.abbr)} ${pct(pA)}</span>${drawP ? `<span>Draw ${pct(d)}</span>` : ''}<span>${esc(g.home.abbr)} ${pct(pH)}</span></div>
+    <div class="cols">${caseHtml(g.away, pA)}${caseHtml(g.home, pH)}</div>
+    <p class="verdict"><strong>Verdict:</strong> ${esc(verdict)}${drawP ? ` Draw chance: ${pct(d)}.` : ''}</p>
+    ${g.state.state === 'pre' && !league.esport ? (({ yes, text }) => `<p class="bet${yes ? ' yes' : ''}"><strong>Bet on ${esc(W.abbr)}?</strong> ${esc(text)}</p>`)(betAdvice(W, winP, league)) : ''}
+    ${injuriesKnown ? `<details><summary>Injury report</summary><div class="cols">${injList(g.away)}${injList(g.home)}</div></details>` : ''}
+  </article>`;
+}
+
+load();
+</script>
+</body>
+</html>
